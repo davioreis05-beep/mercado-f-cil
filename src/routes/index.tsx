@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { PRODUCTS } from "@/lib/catalog";
+import { registerSale, stockOf, useInventory } from "@/lib/inventory";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,25 +19,6 @@ export const Route = createFileRoute("/")({
   component: App,
 });
 
-type Product = { id: number; name: string; cat: string; price: number; emoji: string; promo?: number; unit: string };
-const PRODUCTS: Product[] = [
-  { id: 1, name: "Banana Prata", cat: "Hortifruti", price: 6.99, emoji: "🍌", unit: "kg", promo: 4.99 },
-  { id: 2, name: "Maçã Gala", cat: "Hortifruti", price: 9.9, emoji: "🍎", unit: "kg" },
-  { id: 3, name: "Tomate", cat: "Hortifruti", price: 7.49, emoji: "🍅", unit: "kg" },
-  { id: 4, name: "Abacate", cat: "Hortifruti", price: 5.5, emoji: "🥑", unit: "un", promo: 3.99 },
-  { id: 5, name: "Leite Integral 1L", cat: "Laticínios", price: 5.49, emoji: "🥛", unit: "un" },
-  { id: 6, name: "Queijo Mussarela", cat: "Laticínios", price: 42.9, emoji: "🧀", unit: "kg", promo: 36.9 },
-  { id: 7, name: "Ovos (12 un)", cat: "Laticínios", price: 13.9, emoji: "🥚", unit: "dz" },
-  { id: 8, name: "Pão Francês", cat: "Padaria", price: 15.9, emoji: "🥖", unit: "kg" },
-  { id: 9, name: "Croissant", cat: "Padaria", price: 6.5, emoji: "🥐", unit: "un" },
-  { id: 10, name: "Picanha", cat: "Açougue", price: 79.9, emoji: "🥩", unit: "kg", promo: 69.9 },
-  { id: 11, name: "Frango Inteiro", cat: "Açougue", price: 14.9, emoji: "🍗", unit: "kg" },
-  { id: 12, name: "Arroz 5kg", cat: "Mercearia", price: 27.9, emoji: "🍚", unit: "un" },
-  { id: 13, name: "Café 500g", cat: "Mercearia", price: 18.9, emoji: "☕", unit: "un", promo: 15.9 },
-  { id: 14, name: "Suco de Laranja", cat: "Bebidas", price: 9.9, emoji: "🧃", unit: "un" },
-  { id: 15, name: "Água Mineral 1,5L", cat: "Bebidas", price: 2.99, emoji: "💧", unit: "un" },
-  { id: 16, name: "Chocolate 90g", cat: "Mercearia", price: 6.9, emoji: "🍫", unit: "un" },
-];
 const CATS = ["Todos", "Ofertas", ...Array.from(new Set(PRODUCTS.map((p) => p.cat)))];
 
 const TIERS = [
@@ -87,13 +72,15 @@ function App() {
             {nav.map(([k, l]) => (
               <button key={k} onClick={() => setTab(k)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${tab === k ? "bg-primary text-primary-foreground shadow-pop" : "hover:bg-secondary"}`}>{l}</button>
             ))}
+            <Link to="/estoque" className="rounded-full border px-4 py-2 text-sm font-semibold hover:bg-secondary">Gestão</Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">
         {tab === "loja" && <Store cart={cart} add={add} customer={customer} go={setTab} />}
         {tab === "carrinho" && <Cart cart={cart} add={add} customer={customer} go={setTab} onOrder={(o, spent) => {
-          setOrders([o, ...orders]); setCart({});
+          registerSale(cart, o.id); setOrders([o, ...orders]); setCart({});
           if (customer) setCustomer({ ...customer, spent: customer.spent + spent, points: customer.points + Math.floor(spent) });
           notify("Pedido confirmado! 🎉"); setTab("pedidos");
         }} />}
@@ -112,6 +99,7 @@ const next = (s: string) => STATUS[Math.min(STATUS.indexOf(s) + 1, STATUS.length
 function Store({ cart, add, customer, go }: { cart: Record<number, number>; add: (id: number, d?: number) => void; customer: Customer | null; go: (t: Tab) => void }) {
   const [cat, setCat] = useState("Todos");
   const [q, setQ] = useState("");
+  const inv = useInventory();
   const list = PRODUCTS.filter((p) => (cat === "Todos" || (cat === "Ofertas" ? p.promo : p.cat === cat)) && p.name.toLowerCase().includes(q.toLowerCase()));
   return (
     <>
@@ -142,11 +130,12 @@ function Store({ cart, add, customer, go }: { cart: Record<number, number>; add:
               {p.promo && <span className="text-xs text-muted-foreground line-through">{brl(p.price)}</span>}
               <span className="text-xs text-muted-foreground">/{p.unit}</span>
             </div>
-            {cart[p.id] ? (
+            <p className="text-xs text-muted-foreground">{stockOf(inv, p.id)} em estoque</p>
+            {stockOf(inv, p.id) <= 0 ? <button disabled className="mt-3 w-full rounded-full bg-muted py-2 text-sm font-semibold text-muted-foreground">Esgotado</button> : cart[p.id] ? (
               <div className="mt-3 flex items-center justify-between rounded-full bg-secondary p-1">
                 <button onClick={() => add(p.id, -1)} className="h-8 w-8 rounded-full bg-card font-bold">−</button>
                 <span className="font-bold">{cart[p.id]}</span>
-                <button onClick={() => add(p.id)} className="h-8 w-8 rounded-full bg-primary font-bold text-primary-foreground">+</button>
+                <button disabled={(cart[p.id] ?? 0) >= stockOf(inv, p.id)} onClick={() => add(p.id)} className="h-8 w-8 disabled:opacity-40 rounded-full bg-primary font-bold text-primary-foreground">+</button>
               </div>
             ) : (
               <button onClick={() => add(p.id)} className="mt-3 w-full rounded-full bg-primary py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">Adicionar</button>
