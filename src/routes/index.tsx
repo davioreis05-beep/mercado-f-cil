@@ -49,7 +49,7 @@ const DELIVERY = [
 const SLOTS = ["08h–10h", "10h–12h", "14h–16h", "16h–18h", "18h–20h"];
 
 type Customer = { name: string; cpf: string; email: string; phone: string; cep: string; address: string; spent: number; points: number };
-type Order = { id: string; date: string; total: number; delivery: string; slot?: string; status: string; items: number };
+type Order = { id: string; date: string; total: number; delivery: string; slot?: string | undefined; status: string; items: number };
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 function useStored<T>(key: string, init: T) {
@@ -107,7 +107,7 @@ function App() {
 }
 
 const STATUS = ["Recebido", "Separando", "Saiu para entrega", "Entregue"];
-const next = (s: string) => STATUS[Math.min(STATUS.indexOf(s) + 1, STATUS.length - 1)];
+const next = (s: string) => STATUS[Math.min(STATUS.indexOf(s) + 1, STATUS.length - 1)] ?? s;
 
 function Store({ cart, add, customer, go }: { cart: Record<number, number>; add: (id: number, d?: number) => void; customer: Customer | null; go: (t: Tab) => void }) {
   const [cat, setCat] = useState("Todos");
@@ -166,7 +166,7 @@ function Cart({ cart, add, customer, go, onOrder }: { cart: Record<number, numbe
   const items = PRODUCTS.filter((p) => cart[p.id]);
   const tier = customer ? tierOf(customer.spent) : null;
   const t = useMemo(() => {
-    const subtotal = items.reduce((s, p) => s + (p.promo ?? p.price) * cart[p.id], 0);
+    const subtotal = items.reduce((s, p) => s + (p.promo ?? p.price) * (cart[p.id] ?? 0), 0);
     const discount = tier ? subtotal * tier.discount : 0;
     const d = DELIVERY.find((x) => x.id === delivery)!;
     const fee = tier && d.fee > 0 && subtotal >= tier.freeShip ? 0 : d.fee;
@@ -189,7 +189,7 @@ function Cart({ cart, add, customer, go, onOrder }: { cart: Record<number, numbe
               <span className="text-3xl">{p.emoji}</span>
               <div className="flex-1"><p className="font-medium">{p.name}</p><p className="text-sm text-muted-foreground">{brl(p.promo ?? p.price)} /{p.unit}</p></div>
               <div className="flex items-center gap-2"><button onClick={() => add(p.id, -1)} className="h-7 w-7 rounded-full bg-secondary">−</button><span className="w-5 text-center font-bold">{cart[p.id]}</span><button onClick={() => add(p.id)} className="h-7 w-7 rounded-full bg-secondary">+</button></div>
-              <span className="w-24 text-right font-semibold">{brl((p.promo ?? p.price) * cart[p.id])}</span>
+              <span className="w-24 text-right font-semibold">{brl((p.promo ?? p.price) * (cart[p.id] ?? 0))}</span>
             </div>
           ))}
         </section>
@@ -230,7 +230,7 @@ function Cart({ cart, add, customer, go, onOrder }: { cart: Record<number, numbe
         <button disabled={!customer || (delivery === "agendada" && !date)} onClick={() => onOrder({
           id: Math.random().toString(36).slice(2, 8).toUpperCase(), date: new Date().toLocaleString("pt-BR"), total: t.total,
           delivery: DELIVERY.find((d) => d.id === delivery)!.label, slot: delivery === "agendada" ? `${date.split("-").reverse().join("/")} ${slot}` : undefined,
-          status: "Recebido", items: items.reduce((s, p) => s + cart[p.id], 0),
+          status: "Recebido", items: items.reduce((s, p) => s + (cart[p.id] ?? 0), 0),
         }, t.total)} className="w-full rounded-full bg-primary py-3 font-bold text-primary-foreground shadow-pop disabled:opacity-40">
           {customer ? "Finalizar pedido" : "Cadastre-se para finalizar"}
         </button>
