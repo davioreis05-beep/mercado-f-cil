@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { PRODUCTS } from "@/lib/catalog";
 import { registerSale, stockOf, useInventory } from "@/lib/inventory";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -72,7 +71,6 @@ function App() {
             {nav.map(([k, l]) => (
               <button key={k} onClick={() => setTab(k)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${tab === k ? "bg-primary text-primary-foreground shadow-pop" : "hover:bg-secondary"}`}>{l}</button>
             ))}
-            <Link to="/estoque" className="rounded-full border px-4 py-2 text-sm font-semibold hover:bg-secondary">Gestão</Link>
             <ThemeToggle />
           </nav>
         </div>
