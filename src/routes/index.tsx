@@ -58,7 +58,7 @@ function useStored<T>(key: string, init: T) {
   const set = (x: T) => { setV(x); localStorage.setItem(key, JSON.stringify(x)); };
   return [v, set] as const;
 }
-const tierOf = (spent: number) => [...TIERS].reverse().find((t) => spent >= t.min)!;
+const tierOf = (spent: number): (typeof TIERS)[number] => [...TIERS].reverse().find((t) => spent >= t.min) ?? TIERS[0]!;
 
 type Tab = "loja" | "carrinho" | "cartao" | "cadastro" | "pedidos";
 
@@ -241,7 +241,7 @@ function Cart({ cart, add, customer, go, onOrder }: { cart: Record<number, numbe
 const Row = ({ l, v, hl }: { l: string; v: string; hl?: boolean }) => <div className={`flex justify-between text-sm ${hl ? "font-semibold text-primary" : ""}`}><span>{l}</span><span>{v}</span></div>;
 
 function Loyalty({ customer, go }: { customer: Customer | null; go: (t: Tab) => void }) {
-  const tier = customer ? tierOf(customer.spent) : TIERS[0];
+  const tier = customer ? tierOf(customer.spent) : TIERS[0]!;
   const nextT = TIERS[TIERS.indexOf(tier) + 1];
   return (
     <div className="space-y-8">
